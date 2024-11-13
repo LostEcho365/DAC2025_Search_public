@@ -1,0 +1,231 @@
+dataset:
+  transform: augment
+
+criterion:
+  name: ce
+  perm_loss_rho: 0.0001
+  perm_loss_rho_gamma: 1.07
+  area_loss_rho: 0.1
+  cross_density_loss_rho: 0.1
+
+aux_criterion:
+  kl_distill:
+    weight: 0
+
+optimizer:
+  name: sgd
+  lr: 0.02
+  weight_decay: 0.0001
+  momentum: 0.9
+
+scheduler:
+  name: cosine
+  lr_gamma: 0.99
+  lr_min: 1e-5
+  warmup_steps: 0
+
+run:
+  experiment: "cifar10_vgg8_pretrain"
+  n_epochs: 200
+  batch_size: 64
+  use_cuda: 1
+  gpu_id: 0
+  deterministic: 1
+  random_state: 42
+  log_interval: 200
+  train_noise: 0
+  inplace_distill: False
+  train_arch_epoch: 10
+  train_arch_interval: 4
+  train_arch_ratio: 0.2
+  force_perm_legal_epoch: 70
+  do_distill: False
+  grad_clip: True
+  max_grad_value: 1
+
+quantize:
+  weight_bit: 32
+  input_bit: 32
+  v_pi: 4.36
+  v_max: 2.0
+
+noise:
+  input_snr: 0
+  input_er: 0
+  detection_noise: 0
+  detection_snr: 0
+  sigma_noise_std: 0
+  phase_noise_std: 0
+  dc_noise_std: 0
+  cr_noise_std: 0
+
+device:
+  coupler_transmission_factor_t: 0.711
+  coupler_insertion_loss: 0.045
+  crossing_transmission_factor: 0.983
+  crossing_phase_shift: 0.08
+  phase_noise_std: 0
+  input_uncertainty: 0
+
+checkpoint:
+  save_best_model_k: 3
+  checkpoint_dir: "cifar10/vgg8/pretrain"
+  model_comment: ""
+  resume: 0
+  restore_checkpoint: ""
+  no_linear: 0
+
+model:
+  name: "VGG8"
+  kernel_list: [6, 16]
+  kernel_size_list: [5, 5]
+  stride_list: [1, 1]
+  padding_list: [2, 0]
+  hidden_list: [120, 84]
+  block_list: [16, 16, 16, 16, 16]
+  pool_out_size: 0
+  act: relu
+  act_thres: 6
+  norm: bn
+  photodetect: True
+  bn_affine: True
+
+super_layer:
+  name: ps_dc_cr
+  arch:
+    n_waveguides: 16
+    n_front_share_waveguides: 16
+    n_front_share_ops: 16
+    n_blocks: 16
+    n_layers_per_block: 2
+    n_front_share_blocks: 2
+    share_ps: none
+    interleave_dc: True
+    symmetry_cr: False
+    cr_layer_init_alg: noisy_identity
+    device_cost:
+      ps_cost:
+        width: 85
+        height: 80
+        static_power: 14.8
+        dynamic_power: 10
+        insertion_loss: 0.1
+      y_branch_cost:
+        width: 25 # horizontal
+        length: 12.5 # vertical
+        insertion_loss: 0.02
+      dc_cost:
+        width: 50
+        length: 30
+        insertion_loss: 0.3
+      dc2_cost:
+        width: 50
+        length: 30
+        insertion_loss: 0.3
+      dc3_cost:
+        width: 75
+        length: 45
+        insertion_loss: 0.3
+      dc4_cost:
+        width: 100
+        length: 60
+        insertion_loss: 0.3
+      dc5_cost:
+        width: 125
+        length: 75
+        insertion_loss: 0.3
+      dc6_cost:
+        width: 150
+        length: 90
+        insertion_loss: 0.3
+      dc7_cost:
+        width: 175
+        length: 105
+        insertion_loss: 0.3
+      dc8_cost:
+        width: 200
+        length: 120
+        insertion_loss: 0.3
+      cr_cost:
+        width: 8
+        height: 8
+        cr_spacing: 10
+        insertion_loss: 0.1
+      photodetector_cost:
+        sensitivity: -5
+        power: 2.8
+        latency: 10
+        width: 40
+        length: 40
+      TIA_cost:
+        power: 3
+        area: 5200
+        latency: 10
+      modulator_cost:
+        static_power: 10
+        width: 50
+        length: 300
+        insertion_loss: 0.8
+      attenuator_cost:
+        insertion_loss: 0.1
+        length: 7.5
+        width: 7.5
+        static_power: 2.5
+        dynamic_power: 0
+      adc_cost:
+        1:
+          area: 2850
+          prec: 8
+          power: 14.8
+          sample_rate: 10
+          type: 'sar'
+        2:
+          area: 2850
+          prec: 8
+          power: 39
+          sample_rate: 10
+          type: 'flash'
+      dac_cost:
+        1:
+          area: 11000
+          prec: 12
+          power: 169
+          sample_rate: 14
+          FoM: 33.6
+          type: 'cap'
+          latency: 10
+        2:
+          area: 11000
+          prec: 8
+          power: 50
+          sample_rate: 14
+          FoM: None
+          type: 'cap'
+          latency: 10
+      laser_wall_plug_eff: 0.25
+      spacing: 250 # device spacing changed to 250um
+      h_spacing: 50
+      area_upper_bound: 1000000
+      area_lower_bound: 100
+      resolution: 4
+      n_group: 4.5
+  # sample_arch: [8, 4, 1, 8, 4, 1, 8, 4, 1, 8, 4, 1, 4]
+  # sample_arch: [4, 1, 4, 1, 4, 1, 4, 1, 4]
+    dc_port_candidates: [2, 3, 4, 6, 8]
+  sample_arch: [2, 1, 2, 1, 2, 1, 2, 1, 4]
+  sampler:
+    strategy:
+      name: plain # plain, limit_diff
+  num_subnet_training: 3
+  init_gumbel_temperature: 5
+  gumbel_decay_rate: 0.956
+  arch_mask_mode: gumbel_soft
+
+
+teacher:
+  name: null
+  checkpoint: ""
+
+debug:
+  verbose: 1
+

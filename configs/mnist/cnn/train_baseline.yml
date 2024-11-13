@@ -1,0 +1,277 @@
+dataset:
+  name: mnist
+  root: "./data"
+  train_valid_split_ratio: [0.9, 0.1]
+  center_crop: 28
+  resize_mode: bicubic
+  n_test_samples: null
+  n_valid_samples: null
+  num_workers: 2
+  img_height: 28
+  img_width: 28
+  in_channels: 1
+  num_classes: 10
+  transform: augment
+  shuffle: 1
+
+criterion:
+  name: ce
+  perm_loss_rho: 0.0001
+  perm_loss_rho_gamma: 1.07
+  area_loss_rho: 0.1
+  cross_density_loss_rho: 0.1
+
+aux_criterion:
+  kl_distill:
+    weight: 0.1
+
+soft_criterion:
+  name: adaptive
+
+optimizer:
+  name: sgd
+  lr: 0.02
+  weight_decay: 0.0001
+  momentum: 0.9
+
+scheduler:
+  name: cosine
+  lr_gamma: 0.99
+  lr_min: 1e-5
+  warmup_steps: 0
+
+run:
+  experiment: "mnist_cnn_train_8_MZI"
+  n_epochs: 100
+  batch_size: 64
+  grad_clip: False
+  max_grad_value: 1
+  do_distill: False
+  gpu_id: 0
+  use_cuda: 1
+  deterministic: 1
+  random_state: 42
+  log_interval: 20
+  train_noise: 0
+
+
+quantize:
+  weight_bit: 32
+  input_bit: 32
+  pad_max: 1
+  v_pi: 4.36
+  v_max: 2.0
+
+device:
+  coupler_transmission_factor_t: 0.711
+  coupler_insertion_loss: 0.045
+  crossing_transmission_factor: 0.983
+  crossing_phase_shift: 0.08
+  phase_noise_std: 0
+  input_uncertainty: 0
+
+checkpoint:
+  save_best_model_k: 3
+  checkpoint_dir: "mnist/cnn/train_8_MZI"
+  model_comment: ""
+  resume: 0
+  restore_checkpoint: ""
+  no_linear: 0
+
+model:
+  name: "SuperOCNN"
+  kernel_list: [16,16]
+  kernel_size_list: [3,3]
+  stride_list: [2, 1]
+  padding_list: [1, 1]
+  hidden_list: []
+  block_list: [8, 8, 8]
+  pool_out_size: 5
+  act: relu
+  act_thres: 6
+  norm: bn
+  photodetect: True
+  bn_affine: True
+
+super_layer:
+  name: ps_dc_cr_adeptzero
+  arch:
+    n_waveguides: 8
+    n_front_share_waveguides: 8
+    n_front_share_ops: 8
+    n_blocks: 32
+    n_layers_per_block: 2
+    n_front_share_blocks: 4
+    share_ps: none
+    interleave_dc: True
+    first_active_block: True
+    device_cost:
+      ps_cost:
+        width: 100
+        height: 25
+        static_power: 0
+        dynamic_power: 10
+        insertion_loss: 0.25
+      y_branch_cost: # 2x2 MMI
+        width: 27.7 # horizontal
+        length: 2.4 # vertical
+        insertion_loss: 0.02
+      dc_cost: # 2x2 DC
+        width: 200
+        length: 20
+        insertion_loss: 0.5
+      dc2_cost: # 2x2 MMI
+        width: 27.7
+        length: 2.4
+        insertion_loss: 0.33
+      dc3_cost:
+        width: 41.55
+        length: 3.6
+        insertion_loss: 0.33
+      dc4_cost: # 4x4 MMI
+        width: 55.4
+        length: 4.8
+        insertion_loss: 0.33
+      dc5_cost:
+        width: 69.25
+        length: 6
+        insertion_loss: 0.33
+      dc6_cost:
+        width: 83.1
+        length: 7.2
+        insertion_loss: 0.33
+      dc7_cost:
+        width: 96.95
+        length: 8.4
+        insertion_loss: 0.33
+      dc8_cost:
+        width: 110.8
+        length: 9.6
+        insertion_loss: 0.33
+      cr_cost:
+        width: 10
+        height: 10
+        cr_spacing: 10
+        insertion_loss: 0.13
+      photodetector_cost:
+        sensitivity: -27
+        power: 0.00006 # unit: mW
+        latency: 10 # unit: ns
+        width: 180
+        length: 66
+      TIA_cost:
+        power: 3
+        area: 50
+        latency: 10
+      modulator_cost:
+        static_power: 0.00007 # unit: mW
+        width: 250
+        length: 25
+        insertion_loss: 6.4
+      adc_cost:
+        1:
+          area: 2850
+          prec: 8
+          power: 14.8
+          sample_rate: 10
+          type: 'sar'
+        2:
+          area: 2850
+          prec: 8
+          power: 39
+          sample_rate: 10
+          type: 'flash'
+      dac_cost:
+        1:
+          area: 11000
+          prec: 12
+          power: 169
+          sample_rate: 14
+          FoM: 33.6
+          type: 'cap'
+          latency: 10
+        2:
+          area: 11000
+          prec: 8
+          power: 50
+          sample_rate: 14
+          FoM: None
+          type: 'cap'
+          latency: 10
+      laser_wall_plug_eff: 0.25
+      spacing: 250 # device spacing changed to 250um
+      h_spacing: 50
+      area_upper_bound: 1000000000
+      area_lower_bound: 1000
+      first_active_block: True
+      resolution: 4
+      n_group: 4.5
+  # sample_arch: [4, 2, 1, 4, 2, 1, 4, 2, 1, 4, 2, 1, 4]
+    dc_port_candidates: [2, 3, 4, 6, 8]
+  sample_arch: [2, 1, 2, 1, 2, 1, 2, 1, 4]
+  sampler:
+    strategy:
+      name: plain # plain, limit_diff
+  num_subnet_training: 3
+  init_gumbel_temperature: 5
+  gumbel_decay_rate: 0.956
+  arch_mask_mode: gumbel_soft
+
+evo_search:
+  name: EvolutionarySearch
+  population_size: 50
+  parent_size: 20
+  mutation_size: 10
+  mutation_rate_dc: 0.5
+  mutation_rate_cr: 0.5
+  mutation_rate_block: 0.5
+  mutation_ops: ["op1","op2","op3","op4"]
+  crossover_size: 20
+  crossover_cr_split_ratio: 0.5
+  n_iterations: 10
+  score_mode: "compute_density.energy_efficiency"
+  multiobj: True
+  num_procs: 1
+  acc_proxy:
+    gradnorm:
+      weight: 0
+      batch_size: 32
+    zico:
+      weight: 0.167 # zico_score/6
+      batch_size: 32
+    zen:
+      weight: 0
+      mixup_gamma: 0.5
+      batch_size: 32
+      repeat: 10
+    params:
+      weight: 0
+    expressivity:
+      weight: 0
+      num_samples: 400
+      num_steps: 100
+    sparsity:
+      weight: 0.5 # sparsity_score/2
+  robustness:
+    mode: compute_exp_error_score
+    num_samples: 64
+    phase_noise_std: 0.05
+    sigma_noise_std: 0 # no sigma noise added
+    dc_noise_std: 0.015
+    cr_tr_noise_std: 0.02
+    cr_phase_noise_std: 2 # degree not radiant
+  constr:
+    area: [1000,1000000000]
+    power: [190, 2000]
+    latency: [100, 20000]
+    robustness: [0.005, 0.01]
+
+debug:
+  verbose: 1
+
+teacher:
+  name: null
+  checkpoint: ""
+
+gene:
+  file_path: ""
