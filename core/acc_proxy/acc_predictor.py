@@ -28,7 +28,7 @@ class AccuracyPredictor(nn.Module):
         # "sparsity": compute_sparsity_score,
     }
 
-    def __init__(self, model: nn.Module, alg_cfg: dict,SRAM_TEMP: int,RERAM_TEMP: int) -> None:
+    def __init__(self, model: nn.Module, alg_cfg: dict,SRAM_TEMP: int,RERAM_TEMP: int,memory: str) -> None:
         super().__init__()
         self.set_alg(alg_cfg)
         self.model = model
@@ -37,18 +37,21 @@ class AccuracyPredictor(nn.Module):
         self.write_V=2#write_volts
         self.reram_gmax=1/6e3
         self.cim_f=1/(1.3e-8)
+        self.memory=memory
 
     def reram_accuracy(self):
         q=1.6e-19
         kb=3.21e-21
-        
-        weight_flat=self.model.weight.cpu().data.numpy().reshape(-1)
-        sigma_t=math.sqrt(4*self.reram_gmax*self.cim_f*kb*self.RTEMP)/self.write_V
-        sigma_s=math.sqrt(2*self.reram_gmax*self.cim_f*q/self.write_V)
-        noise_thermal=[np.random.normal(loc=0.0,scale=math.sqrt(4*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*kb*self.RTEMP)/self.write_V) for i in weight_flat]
-        noise_shot=[np.random.normal(loc=0.0,scale=math.sqrt(2*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*q/self.write_V)) for i in weight_flat]
-        total_error=math.sqrt(np.sum([i**2 for i in (noise_thermal+noise_shot)]))/self.reram_gmax
-        return total_error
+        if self.memory=="reram":
+            weight_flat=self.model.weight.cpu().data.numpy().reshape(-1)
+            sigma_t=math.sqrt(4*self.reram_gmax*self.cim_f*kb*self.RTEMP)/self.write_V
+            sigma_s=math.sqrt(2*self.reram_gmax*self.cim_f*q/self.write_V)
+            noise_thermal=[np.random.normal(loc=0.0,scale=math.sqrt(4*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*kb*self.RTEMP)/self.write_V) for i in weight_flat]
+            noise_shot=[np.random.normal(loc=0.0,scale=math.sqrt(2*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*q/self.write_V)) for i in weight_flat]
+            total_error=math.sqrt(np.sum([i**2 for i in (noise_thermal+noise_shot)]))/self.reram_gmax
+            return total_error
+        else:
+            return 0
 
     def set_alg(self, alg_cfg: dict):
         # alg_cfg: {
