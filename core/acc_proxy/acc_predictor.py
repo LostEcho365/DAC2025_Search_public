@@ -6,30 +6,49 @@ import numpy as np
 import torch
 from pyutils.general import logger
 from torch import nn, Tensor
+import random
+import math
 
-from core.acc_proxy.gradnorm_score import compute_gradnorm_score
-from core.acc_proxy.params_score import compute_params_score
-from core.acc_proxy.robust_score import compute_exp_error_score
-from core.acc_proxy.sparsity_score import compute_sparsity_score
-from core.acc_proxy.zen_score import compute_zen_score
-from core.acc_proxy.zico_score import compute_zico_score
+# from core.acc_proxy.gradnorm_score import compute_gradnorm_score
+# from core.acc_proxy.params_score import compute_params_score
+# from core.acc_proxy.robust_score import compute_exp_error_score
+# from core.acc_proxy.sparsity_score import compute_sparsity_score
+# from core.acc_proxy.zen_score import compute_zen_score
+# from core.acc_proxy.zico_score import compute_zico_score
 
 __all__ = ["AccuracyPredictor", "RobustnessPredictor"]
 
 class AccuracyPredictor(nn.Module):
 
     _alg_list = {
-        "gradnorm": compute_gradnorm_score,
-        "zen": compute_zen_score,
-        "zico": compute_zico_score,
-        "params": compute_params_score,
-        "sparsity": compute_sparsity_score,
+        # "gradnorm": compute_gradnorm_score,
+        # "zen": compute_zen_score,
+        # "zico": compute_zico_score,
+        # "params": compute_params_score,
+        # "sparsity": compute_sparsity_score,
     }
 
-    def __init__(self, model: nn.Module, alg_cfg: dict) -> None:
+    def __init__(self, model: nn.Module, alg_cfg: dict,SRAM_TEMP: int,RERAM_TEMP: int) -> None:
         super().__init__()
         self.set_alg(alg_cfg)
         self.model = model
+        self.STEMP=SRAM_TEMP
+        self.RTEMP=RERAM_TEMP
+        self.write_V=2#write_volts
+        self.reram_gmax=1/6e3
+        self.cim_f=1/(1.3e-8)
+
+    def reram_accuracy(self):
+        q=1.6e-19
+        kb=3.21e-21
+        
+        weight_flat=self.model.weight.cpu().data.numpy().reshape(-1)
+        sigma_t=math.sqrt(4*self.reram_gmax*self.cim_f*kb*self.RTEMP)/self.write_V
+        sigma_s=math.sqrt(2*self.reram_gmax*self.cim_f*q/self.write_V)
+        noise_thermal=[np.random.normal(loc=0.0,scale=math.sqrt(4*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*kb*self.RTEMP)/self.write_V) for i in weight_flat]
+        noise_shot=[np.random.normal(loc=0.0,scale=math.sqrt(2*max(abs(self.reram_gmax*i),self.reram_gmax/17)*self.cim_f*q/self.write_V)) for i in weight_flat]
+        total_error=math.sqrt(np.sum([i**2 for i in (noise_thermal+noise_shot)]))/self.reram_gmax
+        return total_error
 
     def set_alg(self, alg_cfg: dict):
         # alg_cfg: {
